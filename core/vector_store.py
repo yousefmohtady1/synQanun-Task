@@ -1,7 +1,5 @@
-import os
-import pickle
-import numpy as np
-import faiss
+import chromadb
+import uuid
 from typing import List, Dict
 from config.settings import settings
 from .chunking import DocumentChunk
@@ -10,73 +8,50 @@ from .embeddings import EmbeddingModel
 class VectorStore:
     def __init__(self, embedding_model: EmbeddingModel):
         self.embedding_model = embedding_model
-        self.index = None
-        self.metadata_store = []
+        self.client = chromadb.PersistentClient(path = settings.CHROMA_DB_DIR)
+        self.collection = self.client.get_or_create_collection(name = settings.COLLECTION_NAME)
         
     def index_chunks(self, chunks: List[DocumentChunk]):
         if not chunks:
-            print("No chunks to index.")
             return
         
         print(f"Embedding {len(chunks)} chunks...")
         
+        ids = [str(uuid.uuid4()) for _ in chunks]
+        
         texts = [chunk.content for chunk in chunks]
+        metadatas = [chunk.metadata for chunk in chunks]
         
-        embeddings = self.embedding_model.embed_documents(texts)
-        dimension = embeddings.shape[1]
+        embeddings_np = self.embedding_model.embed_documents(texts)
+        embeddings_list = embeddings_np.tolist()
         
-        self.index = faiss.IndexFlatIP(dimension)
-        self.index.add(embeddings)
+        self.collection.add(
+            ids = ids,
+            embeddings = embeddings_list,
+            documents = texts,
+            metadatas = metadatas
+        )
         
-        self.chunks_data = chunks
-        
-        print(f"Indexed {len(chunks)} vectors of dimension {dimension}.")
+        print(f"Successfully stored {len(chunks)} chunks.")
 
     def search(self, query:str, top_k:int=5) -> List[Dict]:
-        if self.index is None:
-            raise Exception("Index is empty. Load or build it first.")
         
-        query_vector = self.embedding_model.embed_query(query)
-        query_vector = query_vector.reshape(1, -1)
+        query_vector_np = self.embedding_model.embed_query(query)
+        query_vector_list = query_vector_np.tolist()
         
-        scores, indices = self.index.search(query_vector, top_k)
+        results = self.collection.query(
+            query_embeddings = [query_vector_list],
+            n_results = top_k
+        )
 
-        results = []
-        for i in range(top_k):
-            idx = indices[0][i]
-            score = scores[0][i]
-            
-            if idx != -1:
-                chunk = self.chunks_data[idx]
-                results.append({
-                    "score": float(score),
-                    "content": chunk.content,
-                    "metadata": chunk.metadata
+        formatted_results = []
+        if results['ids'] and results['ids'][0]:
+            count = len(results['ids'][0])
+            for i in range(count):
+                formatted_results.append({
+                    "score" : 1 - results['distances'][0][i],
+                    "content" : results['documents'][0][i],
+                    "metadata" : results['metadatas'][0][i]
                 })
-        return results
-    
-    def save(self):
-        if not os.path.exists(settings.ARTIFACTS_DIR):
-            os.makedirs(settings.ARTIFACTS_DIR)
-        
-        index_path = os.path.join(settings.ARTIFACTS_DIR, "index.faiss")
-        data_path = os.path.join(settings.ARTIFACTS_DIR, "chunks.pkl")
-        
-        faiss.write_index(self.index, index_path)
-        with open(data_path, "wb") as f:
-            pickle.dump(self.chunks_data, f)
-         
-        print(f"Vector store saved to {settings.ARTIFACTS_DIR}")
-    
-    def load(self):
-        index_path = os.path.join(settings.ARTIFACTS_DIR, "index.faiss")
-        data_path = os.path.join(settings.ARTIFACTS_DIR, "chunks.pkl")
-        
-        if not os.path.exists(index_path) or not os.path.exists(data_path):
-            raise FileNotFoundError("Artifacts not found. Please ensure the vector store has been saved.")
-        
-        self.index = faiss.read_index(index_path)
-        with open(data_path, "rb") as f:
-            self.chunks_data = pickle.load(f)
-        
-        print(f"Loaded vector store from {settings.ARTIFACTS_DIR}")
+                
+        return formatted_results

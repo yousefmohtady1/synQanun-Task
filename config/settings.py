@@ -10,7 +10,10 @@ class Settings:
     LAWS_DIR = os.path.join(DATA_DIR, "laws")
     JUDGMENTS_DIR = os.path.join(DATA_DIR, "judgments")
     FATWAS_DIR = os.path.join(DATA_DIR, "fatwas")
-    ARTIFACTS_DIR = os.path.join(BASE_DIR, "artifacts")
+    
+    # Vector Database
+    CHROMA_DB_DIR = os.path.join(BASE_DIR, "chroma_storage")
+    COLLECTION_NAME = "legal_docs"
     
     # Chunking
     CHUNK_SIZE = 1000

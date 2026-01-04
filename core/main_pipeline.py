@@ -11,18 +11,20 @@ class SearchPipeline:
         self._initialize()
     
     def _initialize(self):
-        index_path = os.path.join(settings.ARTIFACTS_DIR, "index.faiss")
-        
-        if not os.path.exists(index_path):
-            print ("Artifacts not found. Triggering Auto-Ingestion Pipeline...")
-            ingestion_worker = DataPipeline()
-            ingestion_worker.run()
+        db_exists = False
+        if os.path.exists(settings.CHROMA_DB_DIR):
+            if len(os.listdir(settings.CHROMA_DB_DIR)) > 0:
+                db_exists = True
+                
+        if not db_exists:
+            print("Database not found. Triggering Auto-Ingestion")
+            pipeline = DataPipeline()
+            pipeline.run()
             
-        print("Loading Vector Store...")
+        print("Conncting to vector store")
         embedding_model = EmbeddingModel()
         self.vector_store = VectorStore(embedding_model)
-        self.vector_store.load()
-        print("Search Pipeline Ready.")
+        print("search pipeline is ready")
         
     def search(self, query : str, top_k : int = 5):
         if not self.vector_store:
