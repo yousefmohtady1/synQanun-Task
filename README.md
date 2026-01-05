@@ -61,7 +61,7 @@ synQanun-Task/
     pip install -r requirements.txt
     ```
 
-    *Note: Initializes `sentence-transformers` which might download the model (`intfloat/multilingual-e5-large`) on first run.*
+    *Note: Initializes `sentence-transformers` which might download the model (`BAAI/bge-m3`) on first run.*
 
 ## Usage
 
