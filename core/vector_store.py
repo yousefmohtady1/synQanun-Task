@@ -9,7 +9,10 @@ class VectorStore:
     def __init__(self, embedding_model: EmbeddingModel):
         self.embedding_model = embedding_model
         self.client = chromadb.PersistentClient(path = settings.CHROMA_DB_DIR)
-        self.collection = self.client.get_or_create_collection(name = settings.COLLECTION_NAME)
+        self.collection = self.client.get_or_create_collection(
+            name = settings.COLLECTION_NAME,
+            metadata = {"hnsw:space": "cosine"}
+        )
         
     def index_chunks(self, chunks: List[DocumentChunk]):
         if not chunks:
@@ -44,14 +47,34 @@ class VectorStore:
             n_results = top_k
         )
 
-        formatted_results = []
+        doc_map = {}
+
         if results['ids'] and results['ids'][0]:
             count = len(results['ids'][0])
             for i in range(count):
-                formatted_results.append({
-                    "score" : 1 - results['distances'][0][i],
-                    "content" : results['documents'][0][i],
-                    "metadata" : results['metadatas'][0][i]
+                score = 1 - results['distances'][0][i]
+                content = results['documents'][0][i]
+                metadata = results['metadatas'][0][i]
+                source = metadata.get('source', 'Unknown')
+
+                if source not in doc_map:
+                    doc_map[source] = {
+                        "source" : source,
+                        "doc_type" : metadata.get('type', 'Unknown'),
+                        "max_score" : score,
+                        "chunks" : []
+                    }
+
+                if score > doc_map[source]['max_score']:
+                    doc_map[source]['max_score'] = score
+
+                doc_map[source]['chunks'].append({
+                    "content" : content,
+                    "score" : score,
+                    "metadata" : metadata
                 })
-                
-        return formatted_results
+
+        aggregated_results = list(doc_map.values())
+        aggregated_results.sort(key=lambda x: x['max_score'], reverse=True)
+
+        return aggregated_results

@@ -2,7 +2,7 @@ import os
 
 class Settings:
     # Model
-    EMBEDDINGS_MODEL = "intfloat/multilingual-e5-large"
+    EMBEDDINGS_MODEL = "BAAI/bge-m3"
     
     # Data
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -16,7 +16,6 @@ class Settings:
     COLLECTION_NAME = "legal_docs"
     
     # Chunking
-    CHUNK_SIZE = 1000
-    CHUNK_OVERLAP = 200
+    CHUNK_SIZE = 2000
 
 settings = Settings()
