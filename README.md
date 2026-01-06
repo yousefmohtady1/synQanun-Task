@@ -24,9 +24,9 @@ This project employs a hybrid chunking strategy designed to maximize retrieval r
 
 ## Limitations
 
-1.  **OCR/PDF Support**: Currently supports `.docx` only. PDF/Images require an OCR pipeline (Tesseract/easy ocr) which is out of scope.
-2.  **Naive Aggregation**: Document-level relevance is calculated based on the maximum score of its best chunk. This might favor documents with one highly relevant sentence over documents that are moderately relevant throughout.
-3.  **Arabic NLP**: Basic normalization is applied. Advanced stemming or lemmatization could improve recall but might degrade precision for specific legal terminologies.
+1.  **Limited Input Format Support**: The current pipeline is optimized for digital-native text formats (`.docx`). Handling legacy or scanned legal documents (PDFs/Images)—which are prevalent in the legal domain—would necessitate an upstream OCR preprocessing layer (utilizing tools like Tesseract, EasyOCR, or PaddleOCR) to digitize content prior to ingestion.
+2.  **Cold Start Latency**: The embedding model (bge-m3, ~2.2GB) is loaded into memory lazily. The very first search request triggers this loading process, resulting in a noticeable delay (several seconds) before the first response is served. Subsequent requests are instant.
+3.  **Arabic NLP (Morphological Sensitivity)**: No advanced text normalization (Stemming/Lemmatization) or diacritic removal (Tashkeel stripping) is applied. While bge-m3 is robust, searching for "مكافأه" (with haa) might yield slightly different vector distances than "مكافأة" (with taa marbuta) in edge cases.
 
 ## Project Structure
 
